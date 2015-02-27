@@ -1,10 +1,11 @@
 /**
  * Copyright 2014 Baidu Inc. All rights reserved.
- * 
+ *
  * @ignore
  * @file BAT工具模块
  * @author Justineo
  */
+
 define(function (require) {
     var u = require('underscore');
     var moment = require('moment');
@@ -13,7 +14,6 @@ define(function (require) {
     /**
      * 工具模块
      *
-     * @class util
      * @singleton
      */
     var util = {};
@@ -23,9 +23,9 @@ define(function (require) {
      *
      * 传入一个字符串时，只返回一个发送器函数；传入数组或对象时，递归；传入函数时
      *
-     * @param {string|Array.<string>|Object.<string, string>|Function} url 请求路径或多个请求路径的集合，或是取值函数
-     * @param {Function(string):boolean} isRequester 判断是否是需要生成请求发送器的路径
-     * @return {Function|Array.<Function>|Object.<string, Function>} 将对应的路径转换为发送器后返回
+     * @param {string|Array.<string>|Object.<string, string>|function} url 请求路径或多个请求路径的集合，或是取值函数
+     * @param {function(string):boolean} isRequester 判断是否是需要生成请求发送器的路径
+     * @return {function|Array.<function>|Object.<string, function>} 将对应的路径转换为发送器后返回
      */
     util.genRequesters = function (url, isRequester) {
         if (u.typeOf(url) === 'String') {
@@ -33,7 +33,7 @@ define(function (require) {
 
             // 过滤掉不需要生成的URL
             isRequester = isRequester || function (path) {
-                // 默认跳过以`/download`和`/upload`结尾的路径 
+                // 默认跳过以`/download`和`/upload`结尾的路径
                 return !/\/(?:up|down)load$/.test(path);
             };
 
@@ -168,7 +168,6 @@ define(function (require) {
         var item;
         var k;
         var map = {};
-        var converter = converter;
 
         for (i = list.length; i--;) {
             item = list[i];
@@ -195,6 +194,7 @@ define(function (require) {
      * @param {Object} link 链接配置
      * @param {string} [link.className="list-operation"] 链接的className
      * @param {string} link.url 链接的目标URL
+     * @param {string} [link.disabled] 链接是否禁用
      * @param {string} [link.target] 链接的target属性
      * @param {string} link.text 链接文本
      * @param {Object} [link.extra] 附加属性对象，对应kv对会以data-key="value"形式附加到HTML上
@@ -206,6 +206,11 @@ define(function (require) {
         };
 
         link = u.defaults(link, defaults);
+
+        if (link.disabled) {
+            return '<span class="' + u.escape(link.className) + ' auth-disabled">'
+                + u.escape(link.text) + '</span>';
+        }
 
         var attrs = {
             href: link.url,
@@ -237,6 +242,7 @@ define(function (require) {
      * @param {string} [command.className="list-operation"] 操作按钮的className
      * @param {string} [command.tagName="span"] 操作按钮的HTML元素类型
      * @param {string} command.type 操作按钮点击时触发的事件类型
+     * @param {string} [command.disabled] 操作按钮是否禁用
      * @param {string} [command.args] 操作按钮点击后触发事件所带的参数
      * @param {string} command.text 操作按钮显示的文本
      * @param {Object} [command.extra] 附加属性对象，对应kv对会以data-key="value"形式附加到HTML上
@@ -248,13 +254,20 @@ define(function (require) {
             className: 'list-operation'
         };
         command = u.defaults(command, defaults);
+        var tagName = u.escape(command.tagName);
+
+        if (command.disabled) {
+            return '<' + tagName + ' class="' + u.escape(command.className) + ' auth-disabled">'
+                + u.escape(command.text) + '</' + tagName + '>';
+        }
+
         var attrs = {
             'class': command.className,
             'data-command': command.type
         };
 
-        if (u.typeOf(command.args) === 'String') {
-            attrs['data-command-args'] = command.args;
+        if (typeof command.args !== 'undefined') {
+            attrs['data-command-args'] = '' + command.args;
         }
 
         if (u.typeOf(command.extra) === 'Object') {
@@ -267,7 +280,6 @@ define(function (require) {
             return key + '="' + u.escape(val) + '"';
         });
 
-        var tagName = u.escape(command.tagName);
         return '<' + tagName + ' ' + attrs.join(' ') + '>'
             + u.escape(command.text) + '</' + tagName + '>';
     };
@@ -282,19 +294,19 @@ define(function (require) {
      */
     util.genListOperations = function (operations, config) {
         config = config || {};
-        var html = u.map(
-            operations,
-            function (operation) {
+        var html = u.chain(operations)
+            .map(function (operation) {
                 if (operation.url) {
                     return util.genListLink(operation);
                 }
                 else {
                     return util.genListCommand(operation);
                 }
-            }
-        );
+            })
+            .compact()
+            .value();
 
-        return html.join(config.separator || '<span class="list-operation-separator">|</span>');
+        return html.join(config.separator || '');
     };
 
     /**
@@ -305,20 +317,22 @@ define(function (require) {
         var divId = '__DownloadContainer__';
         var formId = '__DownloadForm__';
         var iframeId = '__DownloadIframe__';
+        /* eslint-disable fecs-indent */
         var tpl = [
             '<form action="${url}" method="post" id="${formId}" ',
                 'name="${formId}" target="${iframeId}"></form>',
             '<iframe src="about:blank" id="${iframeId}" name="${iframeId}">',
             '</iframe>'
         ].join('');
+        /* eslint-enable fecs-indent */
 
         function getUrlWithAderId() {
-            var URI = require('urijs');
+            var uri = require('urijs');
             var user = require('./system/user');
             var aderId = user.ader && user.ader.id
-                || URI.parseQuery(document.location.search).aderId;
-            var query = aderId ? { aderId: aderId } : {};
-            return URI(url).addQuery(query).toString();
+                || uri.parseQuery(document.location.search).aderId;
+            var query = aderId ? {aderId: aderId} : {};
+            return uri(url).addQuery(query).toString();
         }
 
         function getDownloadContainer() {

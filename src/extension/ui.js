@@ -10,6 +10,7 @@ define(
     function (require) {
         var u = require('underscore');
         var lib = require('esui/lib');
+        var Control = require('esui/Control');
 
         /**
          * 加载并配置验证规则
@@ -18,8 +19,10 @@ define(
          */
         function initializeValidationRules() {
             // 加载所有验证规则
-            var MaxLengthRule = require('esui/validator/MaxLengthRule');
-            var MinLengthRule = require('esui/validator/MinLengthRule');
+            require('esui/validator/MaxByteLengthRule');
+            require('esui/validator/MinByteLengthRule');
+            require('esui/validator/MaxLengthRule');
+            require('esui/validator/MinLengthRule');
             var RequiredRule = require('esui/validator/RequiredRule');
             var PatternRule = require('esui/validator/PatternRule');
             var MaxRule = require('esui/validator/MaxRule');
@@ -67,68 +70,32 @@ define(
             }
 
             var Rule = require('esui/validator/Rule');
+            var defaultGetErrorMessage = Rule.prototype.getErrorMessage;
 
-            MaxLengthRule.prototype.getErrorMessage = function (control) {
-                if (control.get('maxErrorMessage')) {
-                    var getErrorMessage = Rule.prototype.getErrorMessage;
-                    getErrorMessage.apply(this, arguments);
+            function getErrorMessage(control) {
+                if (control.get(this.type + 'ErrorMessage')) {
+                    return defaultGetErrorMessage.apply(this, arguments);
                 }
                 var rangeErrorMessage = getRangeErrorMessage(control);
                 if (rangeErrorMessage) {
                     return rangeErrorMessage;
                 }
-                return Rule.prototype.getErrorMessage.apply(this, arguments);
-            };
 
-            MinLengthRule.prototype.getErrorMessage = function (control) {
-                if (control.get('maxErrorMessage')) {
-                    var getErrorMessage = Rule.prototype.getErrorMessage;
-                    getErrorMessage.apply(this, arguments);
-                }
-                var rangeErrorMessage = getRangeErrorMessage(control);
-                if (rangeErrorMessage) {
-                    return rangeErrorMessage;
-                }
-                return Rule.prototype.getErrorMessage.apply(this, arguments);
-            };
-            
-            MaxRule.prototype.getErrorMessage = function (control) {
-                if (control.get('maxErrorMessage')) {
-                    var getErrorMessage = Rule.prototype.getErrorMessage;
-                    getErrorMessage.apply(this, arguments);
-                }
-                var rangeErrorMessage = getRangeErrorMessage(control);
-                if (rangeErrorMessage) {
-                    return rangeErrorMessage;
-                }
-                return Rule.prototype.getErrorMessage.apply(this, arguments);
-            };
+                return defaultGetErrorMessage.apply(this, arguments);
+            }
 
-            MinRule.prototype.getErrorMessage = function (control) {
-                if (control.get('maxErrorMessage')) {
-                    var getErrorMessage = Rule.prototype.getErrorMessage;
-                    getErrorMessage.apply(this, arguments);
-                }
-                var rangeErrorMessage = getRangeErrorMessage(control);
-                if (rangeErrorMessage) {
-                    return rangeErrorMessage;
-                }
-                return Rule.prototype.getErrorMessage.apply(this, arguments);
-            };
-
+            MaxRule.prototype.getErrorMessage = getErrorMessage;
+            MinRule.prototype.getErrorMessage = getErrorMessage;
             PatternRule.prototype.getErrorMessage = function (control) {
                 var pattern = control.get('pattern') + '';
-                if (control.get('patternErrorMessage')
-                    || !NUMBER_REGEX.hasOwnProperty(pattern)
-                ) {
-                    var getErrorMessage = Rule.prototype.getErrorMessage;
-                    getErrorMessage.apply(this, arguments);
+                if (control.get('patternErrorMessage') || !NUMBER_REGEX.hasOwnProperty(pattern)) {
+                    return defaultGetErrorMessage.apply(this, arguments);
                 }
                 var rangeErrorMessage = getRangeErrorMessage(control);
                 if (rangeErrorMessage) {
                     return rangeErrorMessage;
                 }
-                return Rule.prototype.getErrorMessage.apply(this, arguments);
+                return defaultGetErrorMessage.apply(this, arguments);
             };
         }
 
@@ -179,7 +146,7 @@ define(
         function initializeGlobalExtensions() {
             var ui = require('esui');
             var globalExtensions = [
-                { type: 'CustomData', options: {} }
+                // { type: 'CustomData', options: {} }
             ];
 
             u.each(globalExtensions, function (extension) {
@@ -188,7 +155,12 @@ define(
         }
 
         /**
-         * esui升级前region的过渡扩展，增加获取最大地域个数的方法
+         * esui升级前region的过渡扩展
+         * 增加获取最大地域个数的方法
+         * 增加多选状态下是否处于全选状态的判断
+         * 增加获取选中文本的方法
+         * 增加获取rawValue的时候即使省下边没有全选也把省份id返回的方法（adrc地区格式需求）
+         * 增加设置rawValue时去掉非子节点的省份，并返回选中文本的方法（adrc地区格式需求）
          *
          * @ignore
          */
@@ -200,6 +172,99 @@ define(
                     this.maxRegionSize = u.size(this.regionDataIndex);
                 }
                 return this.maxRegionSize;
+            };
+
+            Region.prototype.isAllSelected = function () {
+                if (this.mode === 'multi') {
+                    return this.getMaxRegionSize() === this.getRawValue().length;
+                }
+                // 不是多选就直接返回false吧
+                return false;
+            };
+
+            /*
+             * 获取地区的文本
+             *
+             * @param isFilterParentNode {boolean} 是不是要把有子节点省份的文本过滤掉
+             * @param region {array} 指定地区的id范围，默认使用已选地区
+             * @return {string} 选中的地区的文本
+             */
+            Region.prototype.getRegionText = function (isFilterParentNode, region) {
+                var me = this;
+                var rawValue = region || this.getRawValue();
+                var regionTextArr = [];
+                if (isFilterParentNode) {
+                    u.each(rawValue, function (id) {
+                        var item = me.regionDataIndex[id];
+                        if (!item.children) {
+                            var tmpText =  item.text;
+                            if (tmpText) {
+                                regionTextArr.push(tmpText);
+                            }
+                        }
+                    });
+                }
+                else {
+                    u.each(rawValue, function (id) {
+                        var tmpText = me.regionDataIndex[id] && me.regionDataIndex[id].text;
+                        if (tmpText) {
+                            regionTextArr.push(tmpText);
+                        }
+                    });
+                }
+
+                return regionTextArr.join(',');
+            };
+
+            /*
+             * 主要用于adrc地域获取要发送到后端的值
+             *
+             * @return {array} 不论省是不是全选都得带上的一个地区id数组
+             */
+            Region.prototype.getRawValueWithProv = function () {
+                var me = this;
+                var rawValue = this.getRawValue();
+                var returnRawValue = [];
+                u.each(rawValue, function (id) {
+                    var node = me.regionDataIndex[id];
+                    // 检查叶子节点
+                    if (node && !node.children) {
+                        // 如果不是最深叶节点，那就是我们要的特殊的省
+                        if (node.level !== 4) {
+                            returnRawValue.push(id);
+                        }
+                        else {
+                            // 深度为4就是最深的叶节点，是个市，把它的省也搞进来
+                            returnRawValue.push(id);
+                            returnRawValue.push(node.parent.id);
+                        }
+                    }
+                });
+                return u.uniq(returnRawValue);
+            };
+
+            /*
+             * 主要用于adrc设置控件值
+             *
+             * @param rawValue {array} 地区的id数组
+             * @return {string} 返回这些地区的展示文本，不包含省份以上的文本
+             */
+            Region.prototype.setRawValueWithoutProv = function (rawValue) {
+                if (typeof rawValue === 'string' && rawValue.length) {
+                    rawValue = rawValue.split(',');
+                }
+                var me = this;
+                var regionTextArr = [];
+                var rawValueToBeSet = [];
+                u.each(rawValue, function (id) {
+                    var node = me.regionDataIndex[id];
+                    if (node && !node.children) {
+                        regionTextArr.push(node.text);
+                        rawValueToBeSet.push(node.id);
+                    }
+                });
+                this.setRawValue(rawValueToBeSet);
+                return regionTextArr.join(',');
             };
         }
 
@@ -264,12 +329,45 @@ define(
             };
         }
 
+        function addTreeNodeTitle() {
+            var Tree = require('esui/Tree');
+
+            Tree.prototype.itemTemplate = '<span title="${text}">${text}</span>';
+        }
+
+        function fixSidebarHide() {
+            var Sidebar = require('esui/Sidebar');
+
+            /**
+             * 隐藏控件
+             */
+            Sidebar.prototype.hide = function () {
+                Control.prototype.hide.call(this);
+
+                var mat = lib.g(this.helper.getId('mat'));
+                if (mat) {
+                    mat.style.display = 'none';
+                }
+
+                // 隐藏主区域
+                this.main.style.display = 'none';
+
+                // minibar
+                var miniBar = lib.g(this.helper.getId('minibar'));
+                if (miniBar) {
+                    miniBar.style.display = 'none';
+                }
+            };
+        }
+
         function activate() {
             initializeValidationRules();
             addControlLinkMode();
             initializeGlobalExtensions();
             addRegionExtension();
             addCrumbGlobalRedirect();
+            addTreeNodeTitle();
+            fixSidebarHide();
         }
 
         return {

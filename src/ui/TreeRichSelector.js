@@ -100,6 +100,11 @@ define(
             // 其中包含父节点信息，以及节点选择状态
             var indexData = {};
             if (this.allData && this.allData.children) {
+                indexData[this.allData.id] = {
+                    parentId: null,
+                    node: this.allData,
+                    isSelected: false
+                };
                 walkTree(
                     this.allData,
                     this.allData.children,
@@ -121,8 +126,8 @@ define(
          */
         TreeRichSelector.prototype.refreshContent = function () {
             var treeData = this.isQuery() ? this.queriedData : this.allData;
-            if (!treeData 
-                || !treeData.children 
+            if (!treeData
+                || !treeData.children
                 || !treeData.children.length) {
                 this.addState('empty');
             }
@@ -270,7 +275,7 @@ define(
 
         /**
          * 撤销选择当前项
-         * @param {ui.TreeRichSelector} control 类实例       
+         * @param {ui.TreeRichSelector} control 类实例
          * @ignore
          */
         function unselectCurrent(control) {
@@ -316,9 +321,8 @@ define(
                         var id = node.id !== undefined ? node.id : node;
                         var item = indexData[id];
                         if (item !== null && item !== undefined) {
-                            var node = item.node;
                             // 更新状态，但不触发事件
-                            selectItem(me, node.id, toBeSelected);
+                            selectItem(me, item.node.id, toBeSelected);
                         }
                     }
                 );
@@ -335,7 +339,7 @@ define(
         function actionForDelete(control, item) {
             deleteItem(control, item.node.id);
             // 外部需要知道什么数据被删除了
-            control.fire('delete', { items: [item.node] });
+            control.fire('delete', {items: [item.node]});
         }
 
         /**
@@ -386,7 +390,7 @@ define(
         TreeRichSelector.prototype.deleteAll = function () {
             var items = u.deepClone(this.getSelectedItems());
             this.set('datasource', null);
-            this.fire('delete', { items: items });
+            this.fire('delete', {items: items});
         };
 
         /**
@@ -402,12 +406,12 @@ define(
             control.fire('load');
         }
 
-
         /**
          * 获取指定状态的叶子节点，递归
          *
          * @param {Array=} data 检测的数据源
          * @param {boolean} isSelected 选择状态还是未选状态
+         * @return {Array} 叶子节点数组
          * @ignore
          */
         TreeRichSelector.prototype.getLeafItems = function (data, isSelected) {
@@ -484,6 +488,7 @@ define(
         /**
          * 清除搜索结果
          * @param {ui.RichSelector2} richSelector 类实例
+         * @return {false} 阻止默认行为
          * @ignore
          */
         TreeRichSelector.prototype.clearQuery = function () {
@@ -505,8 +510,7 @@ define(
         /**
          * 搜索含有关键字的结果
          *
-         * @param {String} keyword 关键字
-         * @return {Array} 结果集
+         * @param {string} keyword 关键字
          */
         TreeRichSelector.prototype.queryItem = function (keyword) {
             var filteredTreeData = [];
@@ -523,7 +527,7 @@ define(
         /**
          * 供递归调用的搜索方法
          *
-         * @param {String} keyword 关键字
+         * @param {string} keyword 关键字
          * @param {Object} node 节点对象
          * @return {Array} 结果集
          */

@@ -1,3 +1,33 @@
+* 0.2.4
+    - 修正 `QuickTip` 未能正确处理 `mouseenter` / `mouseleave` 的问题
+    - 在 `extension/ui/lib` 中为 `on` 在代理事件时增加了 `mouseenter` / `mouseleave` 的处理
+
+* 0.2.3
+    - 增加 `QuickTip` 控件扩展
+    - 增加多个 ECharts 图表的控件封装
+    - `Uploader` 控件现在成功上传的返回值可以为空对象
+    - `ListAction` 在局部刷新后会触发 `listchange` 事件
+    - `ListModel` 在局部刷新时会调用一次 `prepare` 方法
+
+* 0.2.2
+    - 增加了 `SearchTree` 控件
+    - 增加了 `RichBoxGroup` 控件
+    - 更新了 `Uploader` 控件的逻辑
+    - `util` 列表生成操作时支持配置为禁用的功能
+    - 增加了部分单测 case
+    - 将 `window` / `history` 相关的逻辑封装到 `location` 模块中
+    - 升级了 `system/constants` 模块的逻辑，更健壮
+
+* 0.2.1
+    - 优化了样式
+    - 增加了 `Sidebar` 的默认处理
+    - 增加了 NMP 权限模块的支持
+    - 增加了列表页的局部刷新功能和 `AuthPanel` 控件
+    - 补充 `system/user` 模块的接口
+    - 修复 `TableTip` 的一些问题
+    - `navigator` 升级，修复子 Tab 的权限问题导致的跳转错误
+    - 系统初始化时增加自定义接口的读取
+
 * 0.2.0
     - 修复 merge 错误
     - 跳升版本

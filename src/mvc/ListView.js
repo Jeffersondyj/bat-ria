@@ -10,12 +10,12 @@ define(function (require) {
     var BaseView = require('./BaseView');
     var u = require('underscore');
     var moment = require('moment');
-    
+
     /**
      * 列表`View`基类
      *
      * @constructor
-     * @extends ef/BaseView
+     * @extends ef.BaseView
      */
     function ListView() {
         BaseView.apply(this, arguments);
@@ -45,14 +45,11 @@ define(function (require) {
             args.order = e.order;
         }
 
-        // 总是带上每页显示数
-        args.pageSize = this.get('pager').get('pageSize');
-
-        this.fire('search', { args: args });
+        this.fire('search', {args: args});
     };
 
     /**
-     * 获取查询参数，默认是取`filter`表单的所有数据，加上表格的排序字段
+     * 获取查询参数，默认是取`filter`表单的所有数据，加上表格的排序字段和每页显示条目数
      *
      * @return {Object}
      */
@@ -60,6 +57,7 @@ define(function (require) {
         // 获取表单的字段
         var form = this.get('filter');
         var args = form ? form.getData() : {};
+
         // 加上原本的排序方向和排序字段名
         args.order = this.model.get('order');
         args.orderBy = this.model.get('orderBy');
@@ -69,7 +67,7 @@ define(function (require) {
             // 关键词去空格
             args.keyword = u.trim(keyword.getValue());
         }
-        
+
         // 日期是独立的
         var range = this.get('range');
         if (range) {
@@ -77,6 +75,13 @@ define(function (require) {
             args.startTime = moment(range[0]).format('YYYYMMDDHHmmss');
             args.endTime = moment(range[1]).format('YYYYMMDDHHmmss');
         }
+
+        // 带上每页显示数
+        var pager = this.get('pager');
+        if (pager) {
+            args.pageSize = pager.get('pageSize');
+        }
+
         return args;
     };
 
@@ -88,7 +93,7 @@ define(function (require) {
      */
     function updatePageIndex(e) {
         var page = e.target.get('page');
-        this.fire('pagechange', { page: page });
+        this.fire('pagechange', {page: page});
     }
 
     /**
@@ -98,6 +103,7 @@ define(function (require) {
         var items = this.getSelectedItems();
 
         this.getGroup('batch').set('disabled', u.isEmpty(items));
+        this.getGroup('batch').set('readOnly', u.isEmpty(items));
     };
 
     /**
@@ -119,10 +125,34 @@ define(function (require) {
     function batchModify(e) {
         var args = {
             // 批量操作的类型
-            type: e.target.getData('type')
+            action: e.target.getData('type'),
+            selectedItems: this.get('table').getSelectedItems()
         };
 
         this.fire('batchmodify', args);
+    }
+
+    /**
+     * 侧边栏模式改变时要调整整体布局
+     *
+     * @param {Object} e 模式切换事件对象
+     */
+    function sidebarModeChange(e) {
+        // Sidebar目前只提供了操作DOM的方式更新布局，需要对ESUI做优化后再升级这块
+        var neighbor = document.getElementById('neighbor');
+
+        if (!neighbor) {
+            return;
+        }
+
+        if (e.mode === 'fixed') {
+            neighbor.className = 'ui-sidebar-neighbor';
+        }
+        else {
+            neighbor.className = 'ui-sidebar-neighbor-hide';
+        }
+
+        this.adjustLayout();
     }
 
     /**
@@ -150,11 +180,18 @@ define(function (require) {
             filter.on('submit', this.submitSearch, this);
         }
 
+        var sidebar = this.get('sidebar');
+        if (sidebar) {
+            sidebar.on('modechange', sidebarModeChange, this);
+        }
+
         u.each(
             this.getGroup('batch'),
             function (button) {
-                // 批量更新
-                button.on('click', batchModify, this);
+                if (button instanceof require('esui/Button')) {
+                    // 批量更新
+                    button.on('click', batchModify, this);
+                }
             },
             this
         );
@@ -170,6 +207,52 @@ define(function (require) {
     ListView.prototype.enterDocument = function () {
         BaseView.prototype.enterDocument.apply(this, arguments);
         this.updateBatchButtonStatus();
+
+        this.adjustLayout();
+    };
+
+    /**
+     * 根据布局变化重新调整自身布局
+     */
+    ListView.prototype.adjustLayout = function () {
+        var table = this.get('table');
+        if (table) {
+            table.adjustWidth();
+        }
+    };
+
+    /**
+     * 根据Model数据重新渲染页面
+     */
+    ListView.prototype.refresh = function () {
+        // 刷新列表
+        this.refreshList();
+
+        // 最后刷新权限显示
+        this.refreshAuth();
+    };
+
+    /**
+     * 根据Model数据重新渲染列表
+     */
+    ListView.prototype.refreshList = function () {
+        var model = this.model;
+        var table = this.get('table');
+        if (table) {
+            table.setDatasource(model.get('tableData'));
+        }
+
+        var pager = this.get('pager');
+        if (pager) {
+            pager.setProperties(
+                {
+                    count: model.get('totalCount'),
+                    page: model.get('pageNo'),
+                    pageSize: model.get('pageSize')
+                },
+                {silent: true}
+            );
+        }
     };
 
     require('er/util').inherits(ListView, BaseView);

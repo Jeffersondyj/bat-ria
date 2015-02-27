@@ -45,9 +45,15 @@ define(
             ActionDialog: 'ef',
             SelectorTreeStrategy: './ui',
             TreeRichSelector: './ui',
-            tableRichSelector: './ui',
+            TableRichSelector: './ui',
             RichSelector: './ui',
-            ToggleButton: './ui'
+            ToggleButton: './ui',
+            AuthPanel: './ui',
+            SearchTree: './ui',
+            RichBoxGroup: './ui',
+            LineChart: './ui',
+            PieChart: './ui',
+            BarChart: './ui'
         };
 
         var extensionModulePrefix = {
@@ -58,7 +64,8 @@ define(
             AutoSubmit: './ui/extension',
             TableTip: './ui/extension',
             TableSubrow: 'esui/extension',
-            WordCount: './ui/extension'
+            WordCount: './ui/extension',
+            QuickTip: './ui/extension'
         };
 
         /**
@@ -146,8 +153,8 @@ define(
              * 加载模板，AMD插件对象暴露的方法
              *
              * @param {string} resourceId 模板资源id
-             * @param {function} parentRequire 父级`require`函数
-             * @param {function} load 加载完成后调用
+             * @param {Function} parentRequire 父级`require`函数
+             * @param {Function} load 加载完成后调用
              */
             load: function (resourceId, parentRequire, load) {
                 function addTemplate(text) {
